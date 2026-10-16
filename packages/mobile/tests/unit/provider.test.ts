@@ -646,6 +646,87 @@ describe('device provider recording', () => {
     expect(cloud.stopped).toHaveLength(2);
   });
 
+  it('finishes a retained provider recording before the next attempt records in the same worker', async () => {
+    const stopped = deferred<ProviderRecordingResult>();
+    const events: string[] = [];
+    const cloud = recordingProvider({
+      start: async (_lease, context) => { events.push(`record ${context.attemptId}`); },
+      stop: async () => {
+        if (cloud.stopped.length < 3) throw new Error('stop unavailable');
+        const result = await stopped.promise;
+        events.push('stopped a1');
+        return result;
+      },
+    });
+    const worker = await leasedWorker(cloud.impl);
+    await worker.engine.artifacts!.startVideo!(operation());
+    await expect(worker.engine.artifacts!.stopVideo!(operation())).rejects.toThrow('stop unavailable');
+    await worker.engine.endAttempt!(cleanup());
+    const nextDir = path.join(artifactsDir, 'retry');
+    const starting = worker.engine.startAttempt!({ attemptId: 'a2', artifactsDir: nextDir, signal: operation().signal, resolveSecret: noSecrets, ...ignoreTrace });
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(cloud.stopped.map((context) => context.dir)).toEqual(Array(3).fill(path.join(artifactsDir, 'video')));
+      expect(cloud.recorded).toHaveLength(1);
+      await expect(worker.engine.artifacts!.startVideo!(operation())).rejects.toThrow('startVideo outside an attempt');
+    } finally {
+      stopped.resolve({ url: 'https://toy.example/a1.mp4', mediaType: 'video/mp4' });
+      await starting;
+    }
+    await worker.engine.artifacts!.startVideo!({ ...operation(), attemptId: 'a2' });
+    expect(events).toEqual(['record a1', 'stopped a1', 'record a2']);
+    await worker.engine.artifacts!.stopVideo!({ ...operation(), attemptId: 'a2' });
+    expect(cloud.stopped.at(-1)!.dir).toBe(path.join(nextDir, 'video'));
+    expect(records(worker)).toEqual([]);
+  });
+
+  it('blocks the next attempt while its retained provider recording cannot stop and preserves its owner', async () => {
+    let unavailable = true;
+    const cloud = recordingProvider({ stop: async () => {
+      if (unavailable) throw new Error('stop unavailable');
+      return { url: 'https://toy.example/a1.mp4', mediaType: 'video/mp4' };
+    } });
+    const worker = await leasedWorker(cloud.impl);
+    await worker.engine.artifacts!.startVideo!(operation());
+    await expect(worker.engine.artifacts!.stopVideo!(operation())).rejects.toThrow('stop unavailable');
+    await worker.engine.endAttempt!(cleanup());
+    const nextAttempt = { attemptId: 'a2', artifactsDir: path.join(artifactsDir, 'retry'), signal: operation().signal, resolveSecret: noSecrets, ...ignoreTrace };
+    await expect(worker.engine.startAttempt!(nextAttempt)).rejects.toThrow('stop unavailable');
+    await expect(worker.engine.artifacts!.startVideo!(operation())).rejects.toThrow('startVideo outside an attempt');
+    expect(cloud.recorded).toHaveLength(1);
+    expect(cloud.stopped.map((context) => context.dir)).toEqual(Array(3).fill(path.join(artifactsDir, 'video')));
+    unavailable = false;
+    await worker.engine.startAttempt!(nextAttempt);
+    expect(cloud.stopped.map((context) => context.dir)).toEqual(Array(4).fill(path.join(artifactsDir, 'video')));
+    await worker.engine.artifacts!.startVideo!({ ...operation(), attemptId: 'a2' });
+    await worker.engine.artifacts!.stopVideo!({ ...operation(), attemptId: 'a2' });
+    expect(cloud.recorded.map(({ context }) => context.attemptId)).toEqual(['a1', 'a2']);
+  });
+
+  it('does not begin another attempt or record when a retained provider stop wait is cancelled', async () => {
+    const stopped = deferred<ProviderRecordingResult>();
+    const cloud = recordingProvider({ stop: async () => {
+      if (cloud.stopped.length < 3) throw new Error('stop unavailable');
+      return stopped.promise;
+    } });
+    const worker = await leasedWorker(cloud.impl);
+    await worker.engine.artifacts!.startVideo!(operation());
+    await expect(worker.engine.artifacts!.stopVideo!(operation())).rejects.toThrow('stop unavailable');
+    await worker.engine.endAttempt!(cleanup());
+    const budget = new AbortController();
+    const starting = worker.engine.startAttempt!({ attemptId: 'a2', artifactsDir: path.join(artifactsDir, 'retry'), signal: budget.signal, resolveSecret: noSecrets, ...ignoreTrace });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    budget.abort();
+    try {
+      await expect(starting).rejects.toMatchObject({ code: 'CANCELLED' });
+      await expect(worker.engine.artifacts!.startVideo!(operation())).rejects.toThrow('startVideo outside an attempt');
+      expect(cloud.recorded).toHaveLength(1);
+      expect(cloud.stopped.map((context) => context.dir)).toEqual(Array(3).fill(path.join(artifactsDir, 'video')));
+    } finally {
+      stopped.resolve({ url: 'https://toy.example/a1.mp4', mediaType: 'video/mp4' });
+    }
+  });
+
   it('resets a leased session whose native recording still cannot stop after endAttempt', async () => {
     const cloud = provider();
     const runner = harness({ device: cloud.impl });
