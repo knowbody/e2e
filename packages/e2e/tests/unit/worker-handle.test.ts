@@ -15,6 +15,13 @@ import { SessionStore } from '../../src/run/sessions.ts';
 import { TargetWorker } from '../../src/run/worker/session.ts';
 import { childProcessSpawner } from '../../src/run/worker/handle.ts';
 
+/** A promise the test releases after observing a lifecycle event. */
+function deferred<T = void>(): { promise: Promise<T>; resolve: (value: T | PromiseLike<T>) => void } {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 /** The worker runs from the package like the runner's own do. */
 const PACKAGE_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..', '..');
 
@@ -96,10 +103,10 @@ describe('ChildProcessRunner', () => {
 
 describe('TargetWorker disposal', () => {
   it.each(['terminate', 'shutdown'] as const)('revokes pending retirement on %s and disposes once', async (escalation) => {
-    const ready = Promise.withResolvers<void>();
-    const disposing = Promise.withResolvers<void>();
-    const finishDisposal = Promise.withResolvers<void>();
-    const finished = Promise.withResolvers<void>();
+    const ready = deferred<void>();
+    const disposing = deferred<void>();
+    const finishDisposal = deferred<void>();
+    const finished = deferred<void>();
     const events: string[] = [];
     const engine = defineEngine({
       name: 'cleanup', version: '1.0.0', spiVersion: 1,
@@ -145,8 +152,8 @@ describe('TargetWorker disposal', () => {
     { messages: [{ type: 'shutdown' }] as const },
     { messages: [{ type: 'shutdown', preserveResources: true }, { type: 'shutdown' }] as const },
   ])('defaults to final cleanup and revokes before queued disposal starts %#', async ({ messages }) => {
-    const ready = Promise.withResolvers<void>();
-    const finished = Promise.withResolvers<void>();
+    const ready = deferred<void>();
+    const finished = deferred<void>();
     const events: string[] = [];
     const engine = defineEngine({
       name: 'cleanup', version: '1.0.0', spiVersion: 1,
