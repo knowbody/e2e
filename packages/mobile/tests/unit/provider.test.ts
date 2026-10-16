@@ -622,6 +622,17 @@ describe('device provider recording', () => {
     expect(worker.fake.calls).toEqual([{ method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } }]);
   });
 
+  it('keeps a reusable leased session when the provider recording still cannot stop during disposal', async () => {
+    const cloud = recordingProvider({ stop: async () => { throw new Error('stop unavailable'); } });
+    const worker = await leasedWorker(cloud.impl);
+    await worker.engine.artifacts!.startVideo!(operation());
+    await expect(worker.engine.artifacts!.stopVideo!(operation())).rejects.toThrow('stop unavailable');
+    await worker.engine.endAttempt!(cleanup());
+    await worker.engine.dispose!({ ...cleanup(), reuseSignal: new AbortController().signal });
+    expect(cloud.stopped.map((stop) => stop.dir)).toEqual(Array(3).fill(path.join(artifactsDir, 'video')));
+    expect(worker.fake.methods()).toEqual(['devices.boot']);
+  });
+
   it('keeps a recording whose stop failed, so endAttempt stops it once more', async () => {
     let failures = 1;
     const cloud = recordingProvider({

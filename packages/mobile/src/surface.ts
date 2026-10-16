@@ -540,6 +540,8 @@ export class AgentDeviceSurface {
       await this.command('reset video recording', (client) => client.sessions.close(), context.signal);
       if (this.recording === recording) this.recording = undefined;
       this.screenReplaced();
+    } else if (recording?.kind === 'lease') {
+      await this.stopLeaseRecording(recording, context.signal);
     }
     // Nothing is launched here: the app is where the last test, or the
     // worker's `prepare`, left it, and a test that wants it fresh calls

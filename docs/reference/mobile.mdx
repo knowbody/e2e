@@ -873,6 +873,25 @@ on secure-field bounds from that capture, so without them the engine cannot
 prove a fallback screenshot safe.
 </Note>
 
+## Video recording cleanup
+
+A provider recording that fails to stop stays owned by its worker. The
+engine retries its stop at attempt end, before another attempt on that
+worker, and during worker disposal. A pending stop is shared. Each retry
+uses the original attempt's video directory.
+
+The next attempt starts only after the provider confirms the stop. A
+failed or cancelled stop wait prevents that attempt from starting.
+Confirmed stops are not repeated if the returned artifact is invalid.
+A failed provider stop alone does not close a healthy agent-device session
+during worker replacement.
+
+These recording handles do not survive worker exit. At run end, the engine
+closes its agent-device sessions and the provider releases its leases.
+Providers must clean up any remaining external recordings when releasing a
+lease. Closing an agent-device session cannot guarantee that an arbitrary
+cloud recording stops, and a failed provider stop callback confirms no stop.
+
 ## Replay cache on a device
 
 The replay cache anchors on the [`location`](#capabilities) a device reports,
