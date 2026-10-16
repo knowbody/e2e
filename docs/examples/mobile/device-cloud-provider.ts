@@ -23,6 +23,7 @@ export function cloudDevices(options: { provider: string; stateDir: string }): D
         runId: request.runId,
         leaseBackend,
         leaseProvider: options.provider,
+        retainOnClose: true,
         platform: request.platform,
         target: 'mobile',
       });
