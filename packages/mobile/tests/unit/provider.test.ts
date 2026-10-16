@@ -140,6 +140,40 @@ describe('device provider', () => {
     expect(worker.fake.lastArgs('apps.install')).toMatchObject({ device: 'sim-0', app: 'Settings', appPath: path.join(PROJECT_ROOT, 'build/App.app') });
   });
 
+  it('keeps a leased session for a replacement worker until the run finishes', async () => {
+    const cloud = provider();
+    const runner = harness({ device: cloud.impl });
+    const prepared = await runner.prepare(prepareInfo({}, 1));
+    const env = prepared?.env ?? {};
+    const retired = harness({ device: cloud.impl });
+    await boot(retired, 'ios', 0, env);
+    await retired.engine.dispose!({ signal: new AbortController().signal, timeoutMs: 5_000 });
+    expect(retired.fake.calls).toEqual([{ method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } }]);
+
+    const replacement = harness({ device: cloud.impl });
+    await boot(replacement, 'ios', 0, env);
+    expect(retired.sessions).toEqual(['e2e-ios-0']);
+    expect(replacement.sessions).toEqual(['e2e-ios-0']);
+    expect(replacement.connections).toEqual([
+      { leaseId: 'lease-0', device: 'sim-0', daemon: { baseUrl: 'https://0.example', authToken: 'token-0' } },
+    ]);
+    expect(replacement.fake.calls).toEqual([{ method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } }]);
+    await replacement.engine.dispose!({ signal: new AbortController().signal, timeoutMs: 5_000 });
+    expect(replacement.fake.calls).toEqual([{ method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } }]);
+
+    await runner.engine.finish!(finishInfo());
+    expect(runner.fake.calls).toEqual([
+      { method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } },
+      { method: 'command.prepare', args: { action: 'ios-runner', platform: 'ios', device: 'sim-0' } },
+      { method: 'apps.open', args: { app: 'Settings', platform: 'ios', device: 'sim-0' } },
+      { method: 'sessions.close', args: undefined },
+    ]);
+    expect(cloud.acquired.map((request) => request.slot)).toEqual([0]);
+    expect(cloud.released).toEqual([
+      { id: 'lease-0', device: 'sim-0', daemon: { baseUrl: 'https://0.example', authToken: 'token-0' } },
+    ]);
+  });
+
   it('skips the build install when the lease says the provider installed it, and opens that app', async () => {
     const cloud = provider({ installedApp: 'com.example.app' });
     const h = harness({ device: cloud.impl, appPath: 'build/App.app' }, false);
@@ -373,6 +407,11 @@ describe('device provider', () => {
     await boot(h, 'ios', 0);
     expect(h.connections).toEqual([undefined]);
     expect(h.fake.lastArgs('devices.boot')).toEqual({ platform: 'ios' });
+    await h.engine.dispose!({ signal: new AbortController().signal, timeoutMs: 5_000 });
+    expect(h.fake.calls).toEqual([
+      { method: 'devices.boot', args: { platform: 'ios' } },
+      { method: 'sessions.close', args: undefined },
+    ]);
     await h.engine.finish!(finishInfo());
     expect(cloud.released).toEqual([]);
   });
@@ -527,12 +566,13 @@ describe('device provider recording', () => {
     expect(cloud.recorded).toEqual([]);
   });
 
-  it('stops a provider recording when the worker is disposed mid-attempt', async () => {
+  it('stops a provider recording without closing its leased session when the worker is disposed mid-attempt', async () => {
     const cloud = recordingProvider();
     const worker = await leasedWorker(cloud.impl);
     await worker.engine.artifacts!.startVideo!(operation());
     await worker.engine.dispose!(cleanup());
-    expect(cloud.stopped).toHaveLength(1);
+    expect(cloud.stopped.map((stop) => stop.dir)).toEqual([path.join(artifactsDir, 'video')]);
+    expect(worker.fake.calls).toEqual([{ method: 'devices.boot', args: { platform: 'ios', device: 'sim-0' } }]);
   });
 
   it('keeps a recording whose stop failed, so endAttempt stops it once more', async () => {
