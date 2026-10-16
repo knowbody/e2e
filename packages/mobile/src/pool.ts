@@ -207,7 +207,7 @@ export class DevicePool {
 
   /**
    * Closes every session `warm` opened for the target and releases what the
-   * source acquired. A worker closes its own session in `dispose`, but a run
+   * source acquired. A local worker closes its own session in `dispose`, but a run
    * that failed in `prepare` never had one, and an agent-device session
    * outlives the process: left open, the next run resumes it by name with
    * the runner state that failed this one. The closes are best-effort under

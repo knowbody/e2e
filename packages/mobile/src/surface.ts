@@ -370,7 +370,7 @@ export class AgentDeviceSurface {
   /** The attempt's `EngineAttemptContext.screen`, which locate captures feed; undefined between attempts. */
   private screenSink: ((snapshot: EngineSnapshot) => void) | undefined;
   /** The device this worker drives, the pool's binding for its slot; undefined leaves the choice to agent-device. */
-  private device: Pick<SlotBinding, 'device' | 'deviceId'> | undefined;
+  private device: SlotBinding | undefined;
   private generation = new Map<string, NodeBinding>();
   private readonly located = new Map<string, NodeBinding>();
   private idCounter = 0;
@@ -686,7 +686,7 @@ export class AgentDeviceSurface {
     this.appIdentity = undefined;
     this.installedApp = undefined;
     this.knownViewport = undefined;
-    if (client === undefined) return;
+    if (client === undefined || this.device?.leaseId !== undefined) return;
     await withinCleanupBudget(client.sessions.close().catch(() => undefined), context);
   }
 
