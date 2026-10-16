@@ -499,12 +499,6 @@ class Scheduler {
     }
   }
 
-  /**
-   * The forced interrupt: no worker gets to finish its unit any more. Each
-   * busy one disposes its engine now and is killed after the force budget,
-   * however long the unit's own grace still had to run. A live retired
-   * worker also receives it to revoke resource reuse during disposal.
-   */
   private broadcastForce(): void {
     if (!this.options.forceSignal.aborted || this.forceBroadcast) return;
     this.forceBroadcast = true;
