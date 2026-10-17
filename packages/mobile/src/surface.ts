@@ -26,7 +26,6 @@ import {
   withinCleanupBudget,
   type EngineAttemptContext,
   type EngineCleanupContext,
-  type EngineDisposeContext,
   type EngineInitInfo,
   type EngineObserveOptions,
   type EngineSnapshot,
@@ -686,7 +685,7 @@ export class AgentDeviceSurface {
     return raceAbort(video.stopping, signal, 'stop video recording');
   }
 
-  async dispose(context: EngineDisposeContext): Promise<void> {
+  async dispose(context: EngineCleanupContext & { readonly reuseSignal?: AbortSignal }): Promise<void> {
     const client = this.client;
     const recording = this.recording;
     this.client = undefined;
