@@ -126,9 +126,12 @@ mobile({ platform: 'android' });
  * one per worker slot at `prepare`, each driven through the daemon and
  * client configuration the lease names. A replacement worker resumes a
  * healthy agent-device session on the same lease. Forced worker shutdown
- * or an unconfirmed agent-device recording stop can close the session.
- * `device.closeApp()` also ends the session. At run end, the engine closes
- * the sessions and the provider releases its leases.
+ * can close the session. `device.closeApp()` ends the session and drops
+ * the device claim during the run. If agent-device has not confirmed a
+ * recording stop, the engine resets the recording before the next
+ * attempt. This reset also closes the session and drops the claim.
+ * At run end, the engine closes the sessions and the provider releases
+ * its leases.
  */
 readonly device?: string | readonly string[] | DeviceProvider | undefined;
 ```
@@ -890,7 +893,8 @@ These recording handles do not survive worker exit. At run end, the engine
 closes its agent-device sessions and the provider releases its leases.
 Providers must clean up any remaining external recordings when releasing a
 lease. Closing an agent-device session cannot guarantee that an arbitrary
-cloud recording stops, and a failed provider stop callback confirms no stop.
+cloud recording stops. A failed provider stop callback does not confirm that
+the recording stopped.
 
 ## Replay cache on a device
 
