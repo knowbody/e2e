@@ -495,7 +495,8 @@ class Scheduler {
       if (queued !== undefined) {
         for (const pair of queued.pairs) this.report(unstartedResult(pair, skip));
       }
-      this.retire(worker, false);
+      if (worker.state === 'retired') this.revokeReuse(worker);
+      else this.retire(worker, false);
     }
   }
 
@@ -707,9 +708,14 @@ class Scheduler {
    * it first, and the others only ever retire idle workers.
    */
   private retire(worker: SchedulerWorker, preserveResources: boolean): void {
-    if (worker.state === 'retired' && preserveResources) return;
+    if (worker.state === 'retired') return;
     worker.state = 'retired';
     worker.shutdown(SHUTDOWN_GRACE_MS, preserveResources);
+  }
+
+  /** Revokes resource reuse without changing the worker's retirement state. */
+  private revokeReuse(worker: SchedulerWorker): void {
+    worker.shutdown(SHUTDOWN_GRACE_MS, false);
   }
 
   private forget(worker: SchedulerWorker): void {
@@ -1065,7 +1071,7 @@ class Scheduler {
   private async drain(): Promise<void> {
     const remaining = [...this.workers];
     for (const worker of remaining) {
-      if (worker.runner.alive) worker.shutdown(SHUTDOWN_GRACE_MS, false);
+      if (worker.runner.alive) this.revokeReuse(worker);
     }
     await Promise.all(remaining.map((worker) => worker.runner.exit));
   }

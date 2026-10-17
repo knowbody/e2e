@@ -706,7 +706,8 @@ export class AgentDeviceSurface {
     };
     const reuse = context.reuseSignal;
     reuse?.addEventListener('abort', close, { once: true });
-    if (this.device?.leaseId === undefined || recording?.kind === 'screen' || reuse === undefined || reuse.aborted) close();
+    const canKeepSession = this.device?.leaseId !== undefined && recording?.kind !== 'screen' && reuse !== undefined && !reuse.aborted;
+    if (!canKeepSession) close();
     try {
       const stopping = recording?.kind === 'lease' ? this.stopLeaseRecording(recording, context.signal).catch(() => undefined) : undefined;
       await withinCleanupBudget((async () => {
