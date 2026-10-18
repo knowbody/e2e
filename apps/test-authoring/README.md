@@ -1,12 +1,14 @@
 # Run the test-authoring experiment
 
-This private package prepares the historical forty-session comparison or a separate twelve-session baseline feasibility study and grades returned E2E tests. It starts no authoring model. The offline controls exercise the built `e2e` CLI and real Chromium without model credentials.
+This private package prepares the historical forty-session comparison, the harder baseline study, or the connected study with six calibration attempts before twelve baseline slots. It grades returned E2E tests and starts no authoring model. The offline controls exercise the built `e2e` CLI and real Chromium without model credentials.
 
 ## First pilot result
 
 The [forty-session pilot](results/pilot-2026-10-17.md) produced no observed detection gain. Both arms provisionally detected all twenty assigned regressions. An external transcript analysis observed lower-test source reads in nineteen treatment sessions and no baseline sessions. Attribution is exploratory AI review; the required human judgments remain pending. The result does not support promoting the treatment into production guidance.
 
 The [harder baseline feasibility check](results/feasibility-2026-10-18.md) retained all twelve first attempts. Nine submissions passed the correct app and failed the changed app. Three sessions hit the token cutoff, and no slot produced a qualifying miss. Admission remains `unresolved`; a sixty-run comparison has not started.
+
+The [connected calibration](results/connected-calibration-2026-10-18.md) passed its 144 preparation checks, then retained six author attempts. A journal-reader defect and an incorrect validation invocation blocked calibration. No baseline budget was sealed, and all twelve baseline slots remain unstarted.
 
 ## Prepare the inputs
 
@@ -18,6 +20,8 @@ pnpm --filter @e2e-dev/web exec playwright-core install chromium
 ```
 
 Either command returning a nonzero exit code means setup failed.
+
+The child app command resolves `node` through `PATH`. If you invoke the CLI with an absolute Node path, also put that Node executable's directory on `PATH`.
 
 Create a settings JSON file outside the repository. This example declares synthetic controls and must not be used to claim real authoring results.
 
