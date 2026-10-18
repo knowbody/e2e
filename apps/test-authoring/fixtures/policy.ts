@@ -86,7 +86,7 @@ export const eligible = booking => booking.policyVersion === 2
     'app.js': `import { bookings } from './data.mjs';
 import { eligible } from './view.mjs';
 
-const storageKey = 'pine-bookings';
+const storageKey = 'pine-bookings:v1';
 const saved = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
 const main = document.querySelector('main');
 const result = document.querySelector('[aria-label="Cancellation result"]');

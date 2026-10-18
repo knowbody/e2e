@@ -39,7 +39,7 @@ export const persistence = {
 `,
     'rules.mjs': `export const formatAccountName = name => name.trim().replace(/\\s+/g, ' ');
 `,
-    'app.js': `const storageKey = 'willow-account-1-email-updates';
+    'app.js': `const storageKey = 'willow-account-1-email-updates:v1';
 let saved = JSON.parse(localStorage.getItem(storageKey) ?? 'true');
 let page = 'settings';
 const main = document.querySelector('main');
@@ -62,6 +62,10 @@ document.addEventListener('click', event => {
   page = link.getAttribute('href').slice(1);
   result.textContent = '';
   render();
+});
+
+document.addEventListener('change', event => {
+  if (event.target.matches('input[type=checkbox]')) result.textContent = '';
 });
 
 document.addEventListener('submit', event => {

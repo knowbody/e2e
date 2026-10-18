@@ -1,9 +1,11 @@
 import { parseArgs } from 'node:util';
 import { controls, grade, prepare, summarize } from './experiment.ts';
 import { encode } from './files.ts';
+import { harderStudy } from './harder.ts';
 
 try {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { out: { type: 'string' }, settings: { type: 'string' }, experiment: { type: 'string' }, run: { type: 'string' }, submission: { type: 'string' }, controls: { type: 'boolean' }, fixture: { type: 'string' }, reviews: { type: 'string' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { out: { type: 'string' }, settings: { type: 'string' }, study: { type: 'string' }, experiment: { type: 'string' }, run: { type: 'string' }, submission: { type: 'string' }, controls: { type: 'boolean' }, fixture: { type: 'string' }, reviews: { type: 'string' } } });
+  if (values.study && (values.study !== harderStudy || positionals[0] !== 'prepare')) throw new Error('Only prepare accepts --study harder-baseline-feasibility');
   const required = (name: 'out' | 'settings' | 'experiment' | 'run' | 'submission') => {
     const value = values[name];
     if (!value) throw new Error(`Missing --${name}`);
@@ -11,7 +13,7 @@ try {
   };
   switch (positionals[0]) {
     case 'prepare': {
-      const plan = await prepare(required('out'), required('settings'));
+      const plan = await prepare(required('out'), required('settings'), values.study === harderStudy ? harderStudy : undefined);
       process.stdout.write(`Prepared ${plan.runs.length} fresh sessions. No authoring model was run.\n`);
       break;
     }

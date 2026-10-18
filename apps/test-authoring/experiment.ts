@@ -8,6 +8,7 @@ import { parseSync } from 'oxc-parser';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { z } from 'zod';
 import { controlTest, fixtures, projectFiles, task, treatment, type Fixture } from './corpus.ts';
+import { harderFixtureIds, harderFixtures, harderProjectFiles, harderStudy, harderTask, parseHarderFixtures, type HardFixture } from './harder.ts';
 import { bundle, command, copy, encode, freeze, hash, json, repo, tree } from './files.ts';
 
 const text = z.string().min(1);
@@ -23,8 +24,13 @@ const authoringResult = z.discriminatedUnion('kind', [z.object({ kind: z.literal
 const record = z.object({ settingsHash: digest, sessionId: text, attested: z.object({ freshSession: z.literal(true), projectOnly: z.literal(true), author }).strict(), observed: z.object({ model: text.optional(), settings: z.record(z.string(), z.json()).optional(), tools: z.array(text).optional(), budget: budget.optional(), usage: usage.optional() }).strict(), transcript: z.literal('transcript.jsonl').optional() }).strict();
 const run = z.object({ id: opaque, fixture: text, arm: z.enum(['current', 'inspect-lower-tests']), pair: z.number().int(), order: z.number().int(), project: text, commonHash: digest, projectHash: digest }).strict();
 const planSchema = z.object({ version: z.literal(1), fingerprint: digest, settings, settingsHash: digest, pins: z.record(z.string(), z.json()), runtimeHash: digest, runs: z.array(run).length(40), snapshots: z.record(z.string(), digest) }).strict();
-type Plan = z.infer<typeof planSchema>;
+const feasibilitySchema = planSchema.extend({ version: z.literal(2), study: z.literal(harderStudy), runs: z.array(run.extend({ arm: z.literal('current') })).length(12) }).superRefine((plan, context) => {
+  const ids: readonly string[] = harderFixtureIds;
+  if (new Set(plan.runs.map(entry => entry.id)).size !== 12 || plan.runs.toSorted((a, b) => a.order - b.order).some((entry, index) => entry.order !== index) || plan.runs.some(entry => !ids.includes(entry.fixture)) || ids.some(fixture => plan.runs.filter(entry => entry.fixture === fixture).length !== 2) || Object.keys(plan.snapshots).toSorted().join() !== ids.toSorted().join()) context.addIssue({ code: 'custom', message: 'Expected exactly two baseline slots per harder fixture with unique IDs and contiguous order' });
+});
+type Plan = z.infer<typeof planSchema> | z.infer<typeof feasibilitySchema>;
 type PlannedRun = z.infer<typeof run>;
+type EvaluationFixture = Pick<HardFixture, 'id' | 'name' | 'requirement' | 'mutation' | 'strong' | 'expected'> & { mutationFile: string; weak: string };
 const execution = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('passed'), report: text, selected: z.number().int().positive(), selectionHash: digest }).strict(),
   z.object({ kind: z.literal('failed'), report: text, selected: z.number().int().positive(), selectionHash: digest }).strict(),
@@ -38,6 +44,20 @@ type Judgment = z.infer<typeof judgment>;
 type Outcome = { kind: 'pending'; stage: 'authoring' | 'execution' | 'review' | 'budget' } | { kind: 'invalid'; reason: string } | { kind: 'missed' } | { kind: 'detected'; judgment: Judgment };
 const id = () => randomBytes(12).toString('hex');
 const decisionFields = ['packetId', 'evidenceHash', 'reviewer', 'verdict', 'reason', 'synthetic'];
+
+function evaluationFixture(fixture: Fixture | HardFixture): EvaluationFixture {
+  return { ...fixture, mutationFile: 'mutationFile' in fixture ? fixture.mutationFile : 'app.js', weak: 'weak' in fixture ? fixture.weak : "await expect(screen.getByRole('heading')).toBeVisible();" };
+}
+
+function frozenHarderFixtures(directory: string, plan: Plan): HardFixture[] {
+  const bytes = readFileSync(join(directory, 'corpus.json'));
+  if (hash(bytes) !== plan.pins.corpusHash) throw new Error('Frozen harder corpus changed');
+  return parseHarderFixtures(JSON.parse(bytes.toString()));
+}
+
+function evaluationFixtures(directory: string, plan: Plan): EvaluationFixture[] {
+  return (plan.version === 1 ? fixtures : frozenHarderFixtures(directory, plan)).map(evaluationFixture);
+}
 
 /** Reads sealed grading results and checks the evidence the reviewer receives. */
 function readGrade(directory: string, runId: string): Grade {
@@ -68,39 +88,47 @@ function repositoryPins() {
 function load(directory: string): Plan {
   const bytes = readFileSync(join(directory, 'plan.json'));
   if (hash(bytes) !== readFileSync(join(directory, 'plan.sha256'), 'utf8').trim()) throw new Error('Plan bytes changed');
-  const plan = planSchema.parse(JSON.parse(bytes.toString()));
+  const plan = z.union([planSchema, feasibilitySchema]).parse(JSON.parse(bytes.toString()));
   if (plan.pins.node !== process.version) throw new Error('Node version differs from preparation');
   if (hash(encode(tree(join(directory, 'runtime')))) !== plan.runtimeHash) throw new Error('Runtime bundle changed');
-  if (plan.pins.corpusHash !== hash(encode(fixtures))) throw new Error('Fixture registry changed since preparation');
+  if (plan.version === 1) {
+    if (plan.pins.corpusHash !== hash(encode(fixtures))) throw new Error('Fixture registry changed since preparation');
+  } else {
+    const corpus = frozenHarderFixtures(directory, plan);
+    if (plan.runs.some(entry => entry.project !== corpus.find(fixture => fixture.id === entry.fixture)!.name)) throw new Error('Harder project identity changed');
+    if (hash(readFileSync(join(directory, 'admission-controls.json'))) !== plan.pins.controlEvidenceHash) throw new Error('Admitted controls changed');
+  }
   return plan;
 }
 
-/** Freezes forty fresh authoring projects. No model or paid service is started. */
-export async function prepare(directory: string, settingsFile: string): Promise<Plan> {
+/** Freezes forty comparison projects or twelve admitted baseline projects without starting a model. */
+export async function prepare(directory: string, settingsFile: string, study?: typeof harderStudy): Promise<Plan> {
   directory = resolve(directory);
   if (!relative(repo, directory).startsWith('..')) throw new Error('Prepare outside the repository');
   const declared = settings.parse(json(settingsFile));
+  const corpus = study ? parseHarderFixtures(harderFixtures) : fixtures;
   const skill = tree(join(repo, 'skills/e2e'));
-  const pins = { ...repositoryPins(), declaredSettingsFileHash: hash(readFileSync(settingsFile)), node: process.version, platform: process.platform, architecture: process.arch, fullSkillHash: hash(encode(skill)), commonTaskHash: hash(task), treatmentHash: hash(treatment), corpusHash: hash(encode(fixtures)), builtE2EHash: hash(encode(tree(join(repo, 'packages/e2e/dist')))), builtWebHash: hash(encode(tree(join(repo, 'packages/web/dist')))) };
+  const pins = { ...repositoryPins(), declaredSettingsFileHash: hash(readFileSync(settingsFile)), node: process.version, platform: process.platform, architecture: process.arch, fullSkillHash: hash(encode(skill)), commonTaskHash: hash(study ? harderTask : task), treatmentHash: hash(study ? '' : treatment), corpusHash: hash(encode(corpus)), builtE2EHash: hash(encode(tree(join(repo, 'packages/e2e/dist')))), builtWebHash: hash(encode(tree(join(repo, 'packages/web/dist')))) };
   const fingerprint = hash(encode({ declared, pins }));
   if (existsSync(join(directory, 'plan.json'))) {
     const previous = load(directory);
-    if (previous.fingerprint !== fingerprint) throw new Error('Conflicting preparation inputs. Use a new directory');
+    if (previous.fingerprint !== fingerprint || (previous.version === 2) !== Boolean(study)) throw new Error('Conflicting preparation inputs. Use a new directory');
     for (const entry of previous.runs) if (hash(encode(tree(join(directory, 'author', entry.id, entry.project)))) !== entry.projectHash) throw new Error('Prepared project changed');
     return previous;
   }
   if (existsSync(directory) && readdirSync(directory).length) throw new Error('Output directory must be empty');
   mkdirSync(directory, { recursive: true });
   bundle(join(directory, 'runtime'));
+  if (study) freeze(join(directory, 'corpus.json'), encode(corpus));
   const playwright = await import(pathToFileURL(join(repo, 'packages/web/node_modules/playwright-core/index.mjs')).href);
   const browser = await playwright.chromium.launch({ headless: true });
   const browserVersion: string = browser.version();
   await browser.close();
   const runtimeHash = hash(encode(tree(join(directory, 'runtime'))));
   const snapshots: Record<string, string> = {};
-  for (const fixture of fixtures) {
+  for (const fixture of corpus) {
     const project = join(directory, 'snapshots', fixture.id);
-    const files = projectFiles(fixture);
+    const files = 'files' in fixture ? harderProjectFiles(fixture) : projectFiles(fixture);
     const manifest = JSON.parse(files['package.json']!) as Record<string, unknown>;
     manifest.devDependencies = Object.fromEntries(['e2e', 'web'].map(name => {
       const installed = json(join(repo, 'packages', name, 'package.json')) as { name: string; version: string };
@@ -116,11 +144,17 @@ export async function prepare(directory: string, settingsFile: string): Promise<
   }
   let state = declared.allocationSeed;
   const random = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) / 0x100000000; };
-  const pairs = fixtures.flatMap((fixture, fixtureIndex) => Array.from({ length: 5 }, (_, repetition) => ({ fixture, reverse: (fixtureIndex + repetition) % 2 === 1, pair: fixtureIndex * 5 + repetition })));
+  let controlEvidenceHash: string | undefined;
+  if (study) {
+    const checked = runControls(directory, corpus.map(evaluationFixture));
+    freeze(join(directory, 'admission-controls.json'), encode(checked));
+    controlEvidenceHash = hash(encode(checked));
+  }
+  const pairs = corpus.flatMap((fixture, fixtureIndex) => Array.from({ length: study ? 2 : 5 }, (_, repetition) => ({ fixture, reverse: (fixtureIndex + repetition) % 2 === 1, pair: fixtureIndex * (study ? 2 : 5) + repetition })));
   for (let index = pairs.length - 1; index > 0; index--) { const swap = Math.floor(random() * (index + 1)); [pairs[index], pairs[swap]] = [pairs[swap]!, pairs[index]!]; }
   const runs: PlannedRun[] = [];
   for (const pair of pairs) {
-    const arms = pair.reverse ? ['inspect-lower-tests', 'current'] as const : ['current', 'inspect-lower-tests'] as const;
+    const arms = study ? ['current'] as const : pair.reverse ? ['inspect-lower-tests', 'current'] as const : ['current', 'inspect-lower-tests'] as const;
     for (const arm of arms) {
       const runId = id();
       const project = join(directory, 'author', runId, pair.fixture.name);
@@ -132,7 +166,8 @@ export async function prepare(directory: string, settingsFile: string): Promise<
       runs.push({ id: runId, fixture: pair.fixture.id, arm, pair: pair.pair, order: runs.length, project: pair.fixture.name, commonHash: hash(encode(common)), projectHash: hash(encode(manifest)) });
     }
   }
-  const plan = planSchema.parse({ version: 1, fingerprint, settings: declared, settingsHash: hash(encode(declared)), pins: { ...pins, browserVersion, expectedLowerTestExit: Object.fromEntries(fixtures.map(f => [f.id, f.lowerExit])) }, runtimeHash, runs, snapshots });
+  const fields = { fingerprint, settings: declared, settingsHash: hash(encode(declared)), pins: { ...pins, browserVersion, expectedLowerTestExit: Object.fromEntries(corpus.map(f => [f.id, f.lowerExit])), ...(study ? { controlEvidenceHash } : {}) }, runtimeHash, runs, snapshots };
+  const plan = study ? feasibilitySchema.parse({ ...fields, version: 2, study }) : planSchema.parse({ ...fields, version: 1 });
   freeze(join(directory, 'plan.json'), encode(plan));
   freeze(join(directory, 'plan.sha256'), hash(encode(plan)) + '\n');
   return plan;
@@ -171,14 +206,14 @@ const errorSchema = z.object({ category: text, code: text, phase: text.optional(
 const reportSchema = z.object({ schemaVersion: z.literal('report-1'), run: z.object({ status: text, exitCode: z.number().int(), errors: z.array(errorSchema), summary: z.object({ selected: z.number().int(), executed: z.number().int(), skipped: z.number().int() }).passthrough(), usage: z.object({ modelTokens: z.number(), maxModelCallsInStep: z.number() }).passthrough(), results: z.array(z.object({ id: digest, kind: text, status: text, selected: z.boolean().optional(), attempts: z.array(z.object({ status: text, cleanup: text, secondaryErrors: z.array(errorSchema), error: errorSchema.optional() }).passthrough()) }).passthrough()) }).passthrough() }).passthrough();
 
 /** Runs exact submitted bytes through the copied built CLI on one fresh project. */
-function execute(directory: string, fixture: Fixture, source: string, mutant: boolean, brokenServer = false): Execution {
+function execute(directory: string, fixture: EvaluationFixture, source: string, mutant: boolean, brokenServer = false): Execution {
   const project = join(directory, 'work', id());
   copy(join(directory, 'snapshots', fixture.id), project);
   copy(join(directory, 'runtime'), join(project, 'node_modules'));
   freeze(join(project, 'tests/requirement.e2e.ts'), source);
   if (brokenServer) writeFileSync(join(project, 'server.mjs'), "throw new Error('synthetic broken server');\n");
   if (mutant) {
-    const path = join(project, 'mutationFile' in fixture ? fixture.mutationFile : 'app.js');
+    const path = join(project, fixture.mutationFile);
     const original = readFileSync(path, 'utf8');
     if (original.split(fixture.mutation[0]).length !== 2) throw new Error('Mutation must have exactly one target');
     writeFileSync(path, original.replace(fixture.mutation[0], fixture.mutation[1]));
@@ -233,7 +268,7 @@ function classify(graded?: Grade, review?: Judgment): Outcome {
 }
 
 /** Builds an arm-blind packet from exact test bytes and execution evidence. */
-function packet(directory: string, source: string, fixture: Fixture, correct: Execution, mutant: Execution) {
+function packet(directory: string, source: string, fixture: EvaluationFixture, correct: Execution, mutant: Execution) {
   const packetId = id();
   const destination = join(directory, 'packets', packetId);
   freeze(join(destination, 'requirement.txt'), fixture.requirement + '\n');
@@ -256,7 +291,7 @@ export function grade(directory: string, runId: string, submission: string): Gra
   const plan = load(directory);
   const entry = plan.runs.find(value => value.id === runId);
   if (!entry) throw new Error('Unknown run ID');
-  const fixture = fixtures.find(value => value.id === entry.fixture)!;
+  const fixture = evaluationFixtures(directory, plan).find(value => value.id === entry.fixture)!;
   if (hash(encode(tree(join(directory, 'snapshots', fixture.id)))) !== plan.snapshots[fixture.id]) throw new Error('Fixture snapshot changed');
   const publicFiles = tree(join(directory, 'author', entry.id, entry.project));
   for (const path of Object.keys(publicFiles)) if (path === 'tests/requirement.e2e.ts' || path === 'authoring.json' || path === 'transcript.jsonl' || path.startsWith('.e2e/') || path.startsWith('.home/')) delete publicFiles[path];
@@ -294,13 +329,18 @@ export function grade(directory: string, runId: string, submission: string): Gra
 
 /** Exercises the same built runner with synthetic controls outside the pilot allocation. */
 export function controls(directory: string, fixtureFilter?: string): unknown[] {
-  load(directory);
-  if (fixtureFilter && !fixtures.some(value => value.id === fixtureFilter)) throw new Error('Unknown fixture filter');
+  const plan = load(directory);
+  const selected = evaluationFixtures(directory, plan);
+  if (fixtureFilter && !selected.some(value => value.id === fixtureFilter)) throw new Error('Unknown fixture filter');
+  return runControls(directory, selected.filter(value => !fixtureFilter || value.id === fixtureFilter));
+}
+
+function runControls(directory: string, selected: EvaluationFixture[]): unknown[] {
   const results: unknown[] = [];
-  for (const fixture of fixtures.filter(value => !fixtureFilter || value.id === fixtureFilter)) {
+  for (const fixture of selected) {
     const cases: [string, string][] = [
       ['strong', controlTest(fixture.strong)],
-      ['weak', controlTest("await expect(screen.getByRole('heading')).toBeVisible();")],
+      ['weak', controlTest(fixture.weak)],
       ['throw', controlTest("throw new Error('synthetic unconditional failure');")],
       ['unrelated', controlTest("await expect(screen.getByRole('button', 'Nonexistent action')).toBeVisible();")],
       ['empty', "import { test } from '@e2e-dev/web';\n"],
@@ -321,7 +361,8 @@ export function controls(directory: string, fixtureFilter?: string): unknown[] {
       const beforeReview = classify(graded);
       const outcome = classify(graded, decision);
       const expected = name === 'strong' ? 'detected' : ['empty', 'broken-server', 'skip', 'setup', 'timeout'].includes(name) ? 'pending' : name === 'weak' ? 'missed' : 'invalid';
-      if (outcome.kind !== expected || (name === 'strong' && (beforeReview.kind !== 'pending' || correct.kind !== 'passed' || mutant.kind !== 'failed'))) throw new Error(`Control ${fixture.id}/${name} differed. ${encode({ correct, mutant, outcome })}`);
+      if (outcome.kind !== expected || (name === 'strong' && (beforeReview.kind !== 'pending' || correct.kind !== 'passed' || mutant.kind !== 'failed' || correct.selectionHash !== mutant.selectionHash))) throw new Error(`Control ${fixture.id}/${name} differed. ${encode({ correct, mutant, outcome })}`);
+      if (name === 'weak' && (correct.kind !== 'passed' || mutant.kind !== 'passed' || correct.selectionHash !== mutant.selectionHash)) throw new Error('Weak control must pass both versions with matching selection');
       if (name === 'strong' && mutant.kind === 'failed') {
         const report = reportSchema.parse(json(join(directory, mutant.report)));
         if (!report.run.results.some(value => value.attempts.some(attempt => attempt.error?.code === 'ASSERTION_FAILED')) || !readFileSync(join(directory, mutant.report), 'utf8').includes(fixture.expected)) throw new Error('Strong control did not reach its expected UI assertion');
@@ -353,6 +394,7 @@ export function summarize(directory: string, reviewFile?: string) {
     const session = result?.kind === 'session' ? result : authoringUsage(undefined, plan.settings.author.budget);
     return { run: entry.id, fixture: entry.fixture, arm: entry.arm, synthetic: plan.settings.purpose === 'synthetic-controls', limits: plan.settings.author.budget, usage: session.usage, budget: session.budget };
   });
+  if (plan.version === 2) return summarizeFeasibility(directory, plan, grades);
   const rows = ['all', ...fixtures.map(value => value.id)].flatMap(fixture => (['current', 'inspect-lower-tests'] as const).map(arm => {
     const entries = plan.runs.filter(entry => entry.arm === arm && (fixture === 'all' || fixture === entry.fixture));
     const outcomes = entries.map(entry => {
@@ -375,6 +417,34 @@ export function summarize(directory: string, reviewFile?: string) {
   const proposedPromotion = complete ? difference('all') > 0 && fixtures.filter(value => difference(value.id) > 0).length >= 2 && difference('stale-test') >= 0 && difference('no-relevant-test') >= 0 : null;
   const report = { purpose: plan.settings.purpose, rows, runs, complete, proposedPromotion, authoringUsage: 'Launcher observations are not independently verified. Totals include known measurements only; null means none measured.', lowerTestReads: 'unmeasured; transcripts are archived but no file-read parser is implemented', limitation: 'No statistical significance or generalization beyond these four fixtures, author model, and declared settings.' };
   const markdown = ['| Fixture | Arm | Scheduled | Submitted | Valid | Reviewed | Detected | Invalid | Pending | Budget within | Exceeded | Unknown |', '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|', ...rows.map(value => `| ${value.fixture} | ${value.arm} | ${value.scheduled} | ${value.submitted} | ${value.executionValid} | ${value.reviewed} | ${value.detected} | ${value.invalid} | ${value.pending} | ${value.budget.within} | ${value.budget.exceeded} | ${value.budget.unknown} |`), '', '| Run | Turns | Tokens | Wall time seconds | Budget |', '|---|---:|---:|---:|---|', ...runs.map(value => `| ${value.run} | ${value.usage.turns ?? 'unknown'} | ${value.usage.tokens ?? 'unknown'} | ${value.usage.wallTimeSeconds ?? 'unknown'} | ${value.budget.kind}${value.budget.kind === 'within' ? '' : `, ${value.budget.metrics.join(', ')}`} |`), '', '| Fixture | Arm | Measure | Known | Missing | Known total |', '|---|---|---|---:|---:|---:|', ...rows.flatMap(value => Object.entries(value.usage).map(([metric, measured]) => `| ${value.fixture} | ${value.arm} | ${metric} | ${measured.known} | ${measured.missing} | ${measured.total ?? 'unknown'} |`)), '', `Complete reviewed pilot: ${complete}. Proposed promotion: ${proposedPromotion === null ? 'pending' : proposedPromotion}.`, report.authoringUsage, report.limitation, report.lowerTestReads, ''].join('\n');
+  mkdirSync(join(directory, 'reports'), { recursive: true });
+  writeFileSync(join(directory, 'reports/summary.json'), encode(report));
+  writeFileSync(join(directory, 'reports/summary.md'), markdown);
+  return { report, markdown };
+}
+
+function summarizeFeasibility(directory: string, plan: Extract<Plan, { version: 2 }>, grades: Map<string, Grade>) {
+  const corpus = frozenHarderFixtures(directory, plan);
+  const runs = plan.runs.map(entry => {
+    const graded = grades.get(entry.id);
+    const path = graded && join(directory, 'judgments', `${graded.packetId}.json`);
+    const review = path && existsSync(path) ? judgment.parse(json(path)) : undefined;
+    const authoring = graded?.authoring;
+    const session = authoring?.kind === 'session' ? authoring : authoringUsage(undefined, plan.settings.author.budget);
+    const matching = Boolean(graded && graded.correct.kind !== 'unusable' && graded.mutant.kind !== 'unusable' && graded.correct.selectionHash === graded.mutant.selectionHash);
+    const valid = Boolean(graded?.correct.kind === 'passed' && graded.mutant.kind !== 'unusable' && matching);
+    const qualifyingMiss = Boolean(plan.settings.purpose === 'pilot' && graded && !graded.synthetic && authoring?.kind === 'session' && session.budget.kind === 'within' && matching && graded.correct.kind === 'passed' && graded.mutant.kind === 'passed');
+    return { run: entry.id, fixture: entry.fixture, submitted: Boolean(graded), correct: graded?.correct.kind ?? 'missing', changed: graded?.mutant.kind ?? 'missing', matchingSelection: matching, correctAppValid: valid, limits: plan.settings.author.budget, usage: session.usage, budget: session.budget, qualifyingMiss, outcome: classify(graded, review), humanAttributionPending: valid && graded?.mutant.kind === 'failed' && !review };
+  });
+  const rows = ['all', ...corpus.map(fixture => fixture.id)].map(fixture => {
+    const entries = runs.filter(entry => fixture === 'all' || entry.fixture === fixture);
+    return { fixture, scheduled: entries.length, submitted: entries.filter(entry => entry.submitted).length, correctAppValid: entries.filter(entry => entry.correctAppValid).length, changedPasses: entries.filter(entry => entry.changed === 'passed').length, changedFailures: entries.filter(entry => entry.changed === 'failed').length, qualifyingMisses: entries.filter(entry => entry.qualifyingMiss).length, detected: entries.filter(entry => entry.outcome.kind === 'detected').length, humanAttributionPending: entries.filter(entry => entry.humanAttributionPending).length, budget: { within: entries.filter(entry => entry.budget.kind === 'within').length, exceeded: entries.filter(entry => entry.budget.kind === 'exceeded').length, unknown: entries.filter(entry => entry.budget.kind === 'unknown').length } };
+  });
+  const informativeFamiliesWithMiss = corpus.filter(fixture => fixture.kind === 'informative' && runs.some(entry => entry.fixture === fixture.id && entry.qualifyingMiss)).map(fixture => fixture.id);
+  const measurementsComplete = plan.settings.purpose === 'pilot' && runs.every(entry => entry.submitted && entry.correctAppValid && entry.budget.kind === 'within');
+  const admission = measurementsComplete ? informativeFamiliesWithMiss.length >= 2 ? 'admitted' : 'not-admitted' : 'unresolved';
+  const report = { study: harderStudy, purpose: plan.settings.purpose, rows, runs, measurementsComplete, admission, informativeFamiliesWithMiss, comparisonAuthorized: false, humanAttributionPending: runs.filter(entry => entry.humanAttributionPending).length, limitation: 'Twelve baseline sessions measure feasibility and headroom only. They do not estimate instruction benefit, statistical power, or authorize a sixty-run comparison.', authoringUsage: 'Launcher observations require separate raw-event reconciliation. Null remains unknown.', lowerTestReads: 'unmeasured by this command; inspect archived successful tool outputs separately' };
+  const markdown = ['| Fixture | Scheduled | Submitted | Correct valid | Changed passed | Changed failed | Qualifying misses | Human review pending | Budget within | Exceeded | Unknown |', '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|', ...rows.map(row => `| ${row.fixture} | ${row.scheduled} | ${row.submitted} | ${row.correctAppValid} | ${row.changedPasses} | ${row.changedFailures} | ${row.qualifyingMisses} | ${row.humanAttributionPending} | ${row.budget.within} | ${row.budget.exceeded} | ${row.budget.unknown} |`), '', '| Run | Fixture | Correct | Changed | Turns | Tokens | Seconds | Budget | Qualifying miss |', '|---|---|---|---|---:|---:|---:|---|---|', ...runs.map(entry => `| ${entry.run} | ${entry.fixture} | ${entry.correct} | ${entry.changed} | ${entry.usage.turns ?? 'unknown'} | ${entry.usage.tokens ?? 'unknown'} | ${entry.usage.wallTimeSeconds ?? 'unknown'} | ${entry.budget.kind} | ${entry.qualifyingMiss} |`), '', `Feasibility admission: ${admission}. Informative families with qualifying misses: ${informativeFamiliesWithMiss.join(', ') || 'none'}.`, `Human attribution pending: ${report.humanAttributionPending}.`, report.limitation, report.authoringUsage, report.lowerTestReads, ''].join('\n');
   mkdirSync(join(directory, 'reports'), { recursive: true });
   writeFileSync(join(directory, 'reports/summary.json'), encode(report));
   writeFileSync(join(directory, 'reports/summary.md'), markdown);

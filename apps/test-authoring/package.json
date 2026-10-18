@@ -6,7 +6,7 @@
   "description": "Offline preparation and grading for a bounded test-authoring experiment",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test experiment.test.ts",
+    "test": "node --test *.test.ts",
     "eval": "node cli.ts"
   },
   "dependencies": {

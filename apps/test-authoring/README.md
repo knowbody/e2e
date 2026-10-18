@@ -1,6 +1,6 @@
 # Run the test-authoring experiment
 
-This private package prepares forty independent authoring sessions and grades their returned E2E tests. It starts no authoring model. The offline controls exercise the built `e2e` CLI and real Chromium without model credentials.
+This private package prepares the historical forty-session comparison or a separate twelve-session baseline feasibility study and grades returned E2E tests. It starts no authoring model. The offline controls exercise the built `e2e` CLI and real Chromium without model credentials.
 
 ## First pilot result
 
@@ -130,7 +130,7 @@ Every selected test must pass the correct app. Correct-app failures and rejected
 
 Each imported session also receives a budget state. `within` requires every usage measurement to be known and at or below its corresponding limit. Equality with a limit is allowed. `exceeded` means at least one known measurement is above its limit, even if another measurement is missing. That run is invalid and earns zero detection credit. `unknown` means no known overrun exists and at least one measurement is missing. A reviewed intended failure with unknown compliance stays pending budget measurement and earns zero usable detection credit. Its evidence stays archived. Because imports are immutable, collect the missing observations before import or start a new experiment to replace an incompletely measured pilot.
 
-Both summary files report actual per-run consumption and budget states. The JSON also includes each run's declared limits. Per-arm and per-fixture aggregates show the known count, missing count, and sum of known measurements for each usage metric. The total is `null` in JSON and `unknown` in Markdown when no measurement is known. Partial sums are never estimates for the missing sessions. Unknown budget counts include scheduled sessions that have not returned a submission.
+Both summary files report actual per-run consumption and budget states. The JSON also includes each run's declared limits. The historical summary's per-arm and per-fixture aggregates show the known count, missing count, and sum of known measurements for each usage metric. The total is `null` in JSON and `unknown` in Markdown when no measurement is known. Partial sums are never estimates for the missing sessions. Unknown budget counts include scheduled sessions that have not returned a submission.
 
 ## Check the evaluator offline
 
@@ -140,7 +140,7 @@ pnpm --filter @e2e-dev/test-authoring test
 pnpm --filter @e2e-dev/test-authoring typecheck
 ```
 
-Each command returning a nonzero exit code means its check failed. Controls must return twenty-seven rows. The package test must report seven passing tests, including five nested subtests and the metadata policy test, and the typecheck must finish without diagnostics. Root `pnpm test` includes this package after building the public packages. The test suite removes its temporary projects unless `AUTHORING_KEEP_CONTROLS=1` is set.
+Each command returning a nonzero exit code means its check failed. Historical controls must return twenty-seven rows. Harder controls return thirty-six rows. The package test must report passing historical and feasibility checks with no failures, and the typecheck must finish without diagnostics. Root `pnpm test` includes this package after building the public packages. The test suite removes its temporary projects unless `AUTHORING_KEEP_CONTROLS=1` is set.
 
 Each fixture runs strong, weak, unconditional-throw, unrelated-locator, empty-suite, and broken-server controls through the real built CLI. The cart fixture also exercises skipped tests, setup failures, and timeouts. Strong tests pass the correct app and reach their specific failing UI assertion on the mutation. The other controls receive no detection credit. Explicitly synthetic decisions exercise the review join and never enter the forty-run pilot comparison.
 
@@ -151,4 +151,23 @@ Each fixture runs strong, weak, unconditional-throw, unrelated-locator, empty-su
 | Stale test | One intentional failure against the obsolete minimum of five | UI restores that obsolete minimum |
 | No relevant test | Passing unrelated title-formatting check | Reservation confirmation never appears |
 
-The summary always uses twenty scheduled sessions per arm and five per fixture and arm. Invalid authored tests stay in that denominator with zero credit. Pending and invalid counts remain visible. A proposed promotion appears only after all forty pilot submissions have reviewed, resolved outcomes and known budget compliance. Known overruns remain in the fixed denominator with zero credit. Missing usage blocks completion and promotion even when a test otherwise has a resolved outcome. The rule requires more detections overall, improvement on at least two fixtures, and no decline on stale-test or no-relevant-test fixtures. This is a proposed decision rule, with no statistical significance or generalization beyond this corpus and declared authoring setup.
+The historical summary uses twenty scheduled sessions per arm and five per fixture and arm. Invalid authored tests stay in that denominator with zero credit. Pending and invalid counts remain visible. A proposed promotion appears only after all forty pilot submissions have reviewed, resolved outcomes and known budget compliance. Known overruns remain in the fixed denominator with zero credit. Missing usage blocks completion and promotion even when a test otherwise has a resolved outcome. The rule requires more detections overall, improvement on at least two fixtures, and no decline on stale-test or no-relevant-test fixtures. This is a proposed decision rule, with no statistical significance or generalization beyond this corpus and declared authoring setup.
+
+## Prepare the harder baseline feasibility study
+
+```sh
+pnpm authoring:eval prepare --study harder-baseline-feasibility --out /tmp/harder-private --settings /tmp/harder-settings.json
+pnpm authoring:eval summarize --experiment /tmp/harder-private
+```
+
+A nonzero exit code, a missing v2 plan, or a count other than `Prepared 12 fresh sessions` means preparation failed. The initial summary must show twelve scheduled and missing sessions, two per fixture, with `unresolved` admission. A nonzero exit or different counts means reporting failed. These commands start no authoring model.
+
+This study freezes six complete products with passing lower tests. Checkout, adjacent bookings, cancellation capacity, and dependent postal validation are informative fixtures. Versioned cancellation policy and saved preferences are safeguards. Authors receive PRODUCT.md, app source, lower tests, the current installed skill, and the same organic task. All twelve slots use the current arm. Baseline authors may inspect lower tests voluntarily. No treatment paragraph is appended.
+
+Preparation runs all thirty-six synthetic controls before sealing the plan and copying author projects. Every strong control must pass the correct app and fail the changed app at its expected UI assertion. Every weak competing journey must pass both versions with matching selection. Negative controls receive no credit. The plan binds private corpus.json and admission-controls.json. Later changes to the live harder registry cannot reinterpret a frozen v2 study. Historical plans still use their unchanged four-fixture registry.
+
+Use the same fresh-session, external isolation, exact-submission, grading, and blind human-review procedure described above. The package does not launch models or enforce their budget. The external launcher must preserve every first attempt. Missing output, invalid contracts, unusable execution, and unknown or exceeded usage remain in the fixed denominator.
+
+Feasibility admission requires correct-app-valid execution and known budget compliance in all twelve sessions. It also requires a qualifying miss in at least two informative fixture families. A qualifying miss has matching nonempty test selection and passes both app versions within budget. Unrelated failures and safeguard misses never establish informative headroom.
+
+The report returns `admitted` when those conditions hold, `not-admitted` when a complete usable set lacks headroom, and `unresolved` when a measurement or validity condition is missing. Changed-app failures awaiting human attribution remain separately visible. Admission does not establish instruction benefit or authorize a sixty-run comparison. No command prepares that comparison.
