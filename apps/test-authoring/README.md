@@ -178,6 +178,8 @@ The report returns `admitted` when those conditions hold, `not-admitted` when a 
 
 The separate `authoring:connected` command creates a v3 bank for six connected product tickets. The historical `authoring:eval` commands and v1/v2 results retain their existing meaning. This stage schedules six calibration first attempts and twelve baseline first attempts. It creates no treatment or comparison authors. The baseline can inspect ordinary lower tests voluntarily.
 
+Each supplied project README includes the [browser test constraints](connected/browser-authoring.md), and its task links to them. These constraints disclose the submission guard's exact imports, excluded identifiers and property names, and ban on computed access, including array indexing. They apply to the returned suite in this study. They are not restrictions of the E2E package itself.
+
 Build the public packages and install Chromium with the setup commands above. The connected package consumes their built output. It does not build or install through a dependency symlink. The external native operator must implement the exact [version 1 JSON contract](operator-wire.md). Its settings file declares the actual author model, effort, effective sampling controls, tools and frozen operator source hash. It also names the exact predeclared calibration-rule JSON file.
 
 ```sh
