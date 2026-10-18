@@ -6,6 +6,8 @@ This private package prepares the historical forty-session comparison or a separ
 
 The [forty-session pilot](results/pilot-2026-10-17.md) produced no observed detection gain. Both arms provisionally detected all twenty assigned regressions. An external transcript analysis observed lower-test source reads in nineteen treatment sessions and no baseline sessions. Attribution is exploratory AI review; the required human judgments remain pending. The result does not support promoting the treatment into production guidance.
 
+The [harder baseline feasibility check](results/feasibility-2026-10-18.md) retained all twelve first attempts. Nine submissions passed the correct app and failed the changed app. Three sessions hit the token cutoff, and no slot produced a qualifying miss. Admission remains `unresolved`; a sixty-run comparison has not started.
+
 ## Prepare the inputs
 
 Build the packages and install Chromium from the repository root.
