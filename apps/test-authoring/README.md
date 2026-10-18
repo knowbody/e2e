@@ -2,6 +2,10 @@
 
 This private package prepares forty independent authoring sessions and grades their returned E2E tests. It starts no authoring model. The offline controls exercise the built `e2e` CLI and real Chromium without model credentials.
 
+## First pilot result
+
+The [forty-session pilot](results/pilot-2026-10-17.md) produced no observed detection gain. Both arms provisionally detected all twenty assigned regressions. An external transcript analysis observed lower-test source reads in nineteen treatment sessions and no baseline sessions. Attribution is exploratory AI review; the required human judgments remain pending. The result does not support promoting the treatment into production guidance.
+
 ## Prepare the inputs
 
 Build the packages and install Chromium from the repository root.
