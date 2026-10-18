@@ -646,6 +646,26 @@ describe('scheduler disposal', () => {
     expect(fleet.killed).toEqual([]);
     expect(fleet.completedDisposals).toEqual([0]);
   });
+
+  it('kills a worker whose disposal outlasts its configured shutdown budget', async () => {
+    const target = makeTarget('web', 0);
+    const pair = makePair(makeTest('tests/a.e2e.ts', 'a'), target);
+    const fleet = new FakeFleet({ disposal: { delayMs: 12_000 } });
+
+    vi.useFakeTimers();
+    const running = run(makeSelection([{ target, pairs: [pair] }]), makeCollection([pair.test.file], [pair]), fleet, {
+      workers: 1, forceGraceMs: 7_000,
+    });
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(fleet.live).toBe(1);
+    expect(fleet.killed).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(fleet.killed).toEqual([0]);
+    expect(fleet.live).toBe(0);
+    expect(fleet.completedDisposals).toEqual([]);
+    await running;
+  });
 });
 
 describe('scheduler capacity', () => {
