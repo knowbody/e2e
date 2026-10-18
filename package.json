@@ -38,7 +38,8 @@
     "test:agent": "pnpm run build && pnpm --filter @e2e-dev/testbed test:agent",
     "test:scripts": "node --test \"scripts/**/*.test.ts\"",
     "bench:ab": "node scripts/bench-ab.ts",
-    "authoring:eval": "pnpm --filter @e2e-dev/test-authoring run eval"
+    "authoring:eval": "pnpm --filter @e2e-dev/test-authoring run eval",
+    "authoring:connected": "pnpm --filter @e2e-dev/test-authoring run connected"
   },
   "contributors": [
     "Oskar Kwaśniewski <oskar@tester.army>",

@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test *.test.ts",
-    "eval": "node cli.ts"
+    "eval": "node cli.ts",
+    "connected": "node connected-cli.ts"
   },
   "dependencies": {
     "@e2e-dev/web": "workspace:*",

@@ -173,3 +173,70 @@ Use the same fresh-session, external isolation, exact-submission, grading, and b
 Feasibility admission requires correct-app-valid execution and known budget compliance in all twelve sessions. It also requires a qualifying miss in at least two informative fixture families. A qualifying miss has matching nonempty test selection and passes both app versions within budget. Unrelated failures and safeguard misses never establish informative headroom.
 
 The report returns `admitted` when those conditions hold, `not-admitted` when a complete usable set lacks headroom, and `unresolved` when a measurement or validity condition is missing. Changed-app failures awaiting human attribution remain separately visible. Admission does not establish instruction benefit or authorize a sixty-run comparison. No command prepares that comparison.
+
+## Run the connected baseline feasibility study
+
+The separate `authoring:connected` command creates a v3 bank for six connected product tickets. The historical `authoring:eval` commands and v1/v2 results retain their existing meaning. This stage schedules six calibration first attempts and twelve baseline first attempts. It creates no treatment or comparison authors. The baseline can inspect ordinary lower tests voluntarily.
+
+Build the public packages and install Chromium with the setup commands above. The connected package consumes their built output. It does not build or install through a dependency symlink. The external native operator must implement the exact [version 1 JSON contract](operator-wire.md). Its settings file declares the actual author model, effort, effective sampling controls, tools and frozen operator source hash. It also names the exact predeclared calibration-rule JSON file.
+
+```sh
+pnpm authoring:connected prepare --out /tmp/connected-private --settings /tmp/connected-settings.json
+pnpm authoring:connected verify-bank --experiment /tmp/connected-private
+pnpm authoring:connected summarize --experiment /tmp/connected-private
+```
+
+Each command returning a nonzero exit code means validation or orchestration failed. Preparation must report six calibration identities, twelve prospective baseline slots and 108 verified control launches. `verify-bank` must report 36 lower launches, 108 control launches and `allPassed: true`. The initial summary must retain twelve unstarted slots and ordered gate 2, `unresolved-operational-feasibility`. A different count, absent evidence, or zero selected tests fails the corresponding check.
+
+Preparation freezes exact public product and task files, source reconstruction bytes, the complete installed consumer skill, lower-test discovery and counts, two single-location patches per ticket, literal controls, weights, seeds, runtime packages, observed Node and Chromium versions, and all eighteen prospective IDs. It runs each lower suite on correct and both changed images twice. Strong and meaningful weak suites each run on all three images twice. Wrong expectations, unrelated assertions and startup failures each run on the correct image twice. These are 108 real copied-CLI control launches. Preparation retains every result and refuses to freeze a failed or inconsistent bank. A repaired design needs a new retained directory.
+
+Five isolated shop projects use the same complete correct product runtime. The expense ticket uses its applicable product rules. Public project roots contain ordinary app files, lower tests, instructions and copied built dependencies. They contain no private study records or variant settings. Each app owns mutable `.data/` saved state. The operator may also create `.e2e/`, `.home/`, `.tmp/` and the returned test. All supplied inputs remain protected.
+
+The operator first proves deterministic native MCP, boundary, lifecycle and copy behavior against an actual prepared project. This admits the six authorized calibration attempts with attached author shell use explicitly pending. A successful ordinary attached native shell workflow from an actual calibration attempt supplies a separate immutable workflow proof before baseline sealing. A spawned shell outside the native author workflow does not satisfy this proof. Natural supervisor cleanup and owned-finalizer cleanup remain separate recorded observations.
+
+```sh
+pnpm authoring:connected validate-calibration --experiment /tmp/connected-private --run CALIBRATION_ID --submission /tmp/connected-private/exports/calibration/CALIBRATION_ID
+pnpm authoring:connected seal-baseline --experiment /tmp/connected-private
+```
+
+Each command returning a nonzero exit code means that calibration validation or baseline sealing failed. `validate-calibration` also exits nonzero when the exact returned suite fails either predefined correct-app launch. Its result contains no changed-app or variant fields. It never runs calibration suites against a variant. All six complete usage records and two passing correct launches per suite are required. A cutoff, missing output, unknown usage, invalid suite or infrastructure failure stops baseline admission. The study never estimates from a valid subset or replaces an attempt.
+
+Calibration ceilings are 64 completed responses, 2,000,000 full reported tokens and 1,200 authoring seconds. Token totals include cached and repeated input. `maxTurns` and `turns` count unique completed model responses. Let T be the maximum complete token total, P the largest completed response token total, R the maximum completed response count and W the maximum authoring interval across all six. Baseline limits are `100000 * ceil((2*T + P)/100000)` tokens, `max(32, 2*R + 2)` responses and `60 * ceil(max(600, 2*W + 60)/60)` seconds. These limits provide an operational reserve and no guarantee against cutoff. The sealed plan binds all six sources, the workflow proof, common budget and twelve baseline IDs before any baseline author starts.
+
+Author concurrency is one. Timed authors run without grading, builds or integration suites alongside them. The operator preserves each exclusive started marker, terminal failure, full raw reported usage, response-level totals, raw events, export and cleanup evidence. Reactive cutoffs can overshoot. A late complete usage observation cannot change an authoritative cutoff into a completed author. The grader permits equality with a limit and reports known overruns only above it.
+
+```sh
+pnpm authoring:connected grade --experiment /tmp/connected-private --run BASELINE_ID --submission /tmp/connected-private/exports/baseline/BASELINE_ID
+pnpm authoring:connected summarize --experiment /tmp/connected-private
+```
+
+A nonzero `grade` exit means import or orchestration failed. Read its explicit admission and execution states even when the command exits zero. The grade records two correct launches and two launches per changed member. Missing, rejected and cutoff attempts contain six explicit nonexecution cells. Every launched cell uses a fresh copied public project, built packages, an independent app process and browser context, one worker, zero retries, cache off and no runtime model. Connected tests use the ordinary supplied 60-second test timeout. The runner stops test scheduling after 180 seconds. The evaluator interrupts the copied CLI at 240 seconds, then allows a bounded cleanup interval. A timeout or incomplete selection is unusable evidence and earns no detection credit. A locator failure by itself does not establish infrastructure failure or intended relevance.
+
+The private `supervise-cell --project PATH [--deadline-ms N]` diagnostic runs that same copied CLI with a deadline of at most 240,000 milliseconds. It records observed descendant PID/start identities and listening endpoints in sealed `process.json` evidence. POSIX hosts need `ps` and `lsof`; Windows hosts need PowerShell process and TCP metadata. Missing metadata fails the launch. The supervisor interrupts its owned CLI, observes natural cleanup, then finalizes only identities whose start value still matches. A successful finalizer does not erase a deadline or natural cleanup failure.
+
+The study retains exact returned test bytes, reports, text traces, screenshots, CLI output and reconstruction hashes. It can release only newly created disposable dependency copies after recording their hashes and cleanup receipts. It preserves the source runtime bundle and historical artifacts. A repeated command reuses completed cells and refuses conflicting inputs. An interrupted predefined launch remains an interruption and is never retried to obtain a preferred result.
+
+Each member receives an opaque packet containing complete PRODUCT.md and TASK.md, the exact authored test and both correct and changed repeats. Packet manifests describe path scrubbing and any identified attachment that could not be sanitized. An unknown attachment containing a private identity is omitted with its hash and reason in the manifest. Other unknown formats block packet completion until reviewed. Full raw evidence remains private. Packets exclude operator receipts, usage, transcripts, lower-read observations, slot/session identities and private joins. Human reviewers receive only packet directories.
+
+```json
+[
+  {
+    "version": 1,
+    "kind": "human",
+    "packetId": "<opaque packet ID>",
+    "evidenceHash": "<packet evidence hash>",
+    "reviewer": "<human reviewer>",
+    "verdict": "intended-bug",
+    "reason": "<relevant observable UI assertion and public rule>"
+  }
+]
+```
+
+Human verdicts are `intended-bug`, `unrelated-failure`, `qualifying-miss`, `nonqualifying-miss` and `uncertain`. A passing changed suite still requires a human to decide whether it protects a real user goal and qualifies as a miss. An intended detection requires two passing correct launches, two consistent changed failures, matching nonempty selection, complete common-budget compliance and relevant human attribution. Exploratory AI records have a separate `kind: "exploratory-ai"` schema and cannot fill required human judgments.
+
+```sh
+pnpm authoring:connected summarize --experiment /tmp/connected-private --reviews /tmp/connected-human-reviews.json
+pnpm authoring:connected summarize --experiment /tmp/connected-private --ai-reviews /tmp/connected-ai-reviews.json
+```
+
+Each command returning a nonzero exit means record import or evidence validation failed. Summarization preserves accepted judgments and writes reports/summary.json and reports/summary.md. A successful command can report unresolved feasibility. The ordered gate first rejects an independently rejected design. It then keeps any missing, invalid, cutoff, unjudged, inconsistent or unknown evidence unresolved. Only a complete usable judged set can produce observed ceiling, qualifying distributed headroom in at least two informative families, or insufficient qualifying headroom. Orders and wishlist remain safeguards. Every report keeps all twelve slots, suite-level fractions and correlated member outcomes visible. `comparisonAuthorized` is always false.
