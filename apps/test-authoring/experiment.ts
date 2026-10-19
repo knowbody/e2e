@@ -349,7 +349,7 @@ function runControls(directory: string, selected: EvaluationFixture[]): unknown[
     if (fixture.id === 'cart') cases.push(
       ['skip', controlTest("test.skip('synthetic skipped test');")],
       ['setup', controlTest("await expect(screen.getByRole('heading')).toBeVisible();").replace("test('current", "test.beforeEach(() => { throw new Error('synthetic setup failure'); });\ntest('current")],
-      ['timeout', controlTest('await new Promise(() => {});').replace("test('current user requirement', async", "test('current user requirement', { timeout: 25 }, async")],
+      ['timeout', controlTest('await new Promise(() => {});').replace("  await app.open('/');\n", '').replace("test('current user requirement', async", "test('current user requirement', { timeout: 25 }, async")],
     );
     for (const [name, source] of cases) {
       if (name !== 'skip') guard(source);

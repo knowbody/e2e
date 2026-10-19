@@ -76,7 +76,7 @@ test('offline authoring experiment through the real CLI and browser', { timeout:
       assert.equal(results.filter(value => value.control !== 'strong' && value.outcome.kind === 'detected').length, 0);
       assert.equal(results.filter(value => value.control === 'empty').every(value => value.correct.kind === 'unusable'), true);
       assert.equal(results.filter(value => value.control === 'broken-server').every(value => value.correct.kind === 'unusable'), true);
-      for (const control of ['skip', 'setup', 'timeout']) assert.equal(results.find(value => value.control === control)!.correct.kind, 'unusable');
+      for (const control of ['skip', 'setup', 'timeout']) assert.equal(results.find(value => value.control === control)!.correct.kind, 'unusable', control);
       cli(['summarize', '--experiment', directory]);
       const summary = json(join(directory, 'reports/summary.json')) as { rows: { detected: number; submitted: number }[] };
       assert.equal(summary.rows.every(value => value.detected === 0 && value.submitted === 0), true);

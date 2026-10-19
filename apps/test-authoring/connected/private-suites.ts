@@ -23,6 +23,7 @@ test('failed cancellation preserves policy-disabled actions and retries the same
 
 test('a failed saved-product write preserves membership until a successful retry', async ({ app, screen, browser }) => {
   await app.open('/products/cafe-mug');
+  await expect(screen.getByRole('button', 'Save Café Mug', { exact: true })).toBeVisible();
   await chmod('.data/shop', 0o500);
   try {
     await screen.getByRole('button', 'Save Café Mug', { exact: true }).tap();
