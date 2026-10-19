@@ -56,14 +56,13 @@ export interface MobileOptions {
   /**
    * Device to use: a simulator or emulator by name, simulator UDID, or
    * emulator serial (`emulator-5554`), or a connected phone by name. A list
-   * is a pool: the
-   * engine declares one worker per entry and worker slot `n` drives the
-   * `n`th, so `workers` at or above the pool size runs the target's files
-   * across every device at once. Omitted, the pool is every booted device of
-   * the platform at `prepare`, as many as the run has slots; with none booted,
-   * agent-device boots one. A `DeviceProvider` leases hosted devices instead:
-   * one per worker slot at `prepare`, each driven through the daemon and
-   * client configuration the lease names. A replacement worker resumes a
+   * is a pool: the engine declares one worker per entry and worker slot `n`
+   * drives the `n`th, so `workers` at or above the pool size runs the target's
+   * files across every device at once. Omitted, the pool is every booted device
+   * of the platform at `prepare`, as many as the run has slots; with none
+   * booted, agent-device boots one. A `DeviceProvider` leases hosted devices
+   * instead: one per worker slot at `prepare`, each driven through the daemon
+   * and client configuration the lease names. A replacement worker resumes a
    * healthy agent-device session on the same lease. Forced worker shutdown
    * can close the session. `device.closeApp()` ends the agent-device session,
    * allowing another session to take the device. If agent-device has not
