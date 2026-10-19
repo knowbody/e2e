@@ -10,6 +10,8 @@ The [harder baseline feasibility check](results/feasibility-2026-10-18.md) retai
 
 The [connected calibration](results/connected-calibration-2026-10-18.md) passed its 144 preparation checks, then retained six author attempts. A journal-reader defect and an incorrect validation invocation blocked calibration. No baseline budget was sealed, and all twelve baseline slots remain unstarted.
 
+The [fresh connected calibration](results/connected-calibration-2026-10-19.md) repaired those execution problems and passed a new 144-check qualification. Three completed suites passed both correct-app replays. A process-observation failure invalidated the fourth calibration slot and stopped the schedule. The twelve-session baseline remains unstarted, so baseline headroom and any inspection benefit remain unmeasured.
+
 ## Prepare the inputs
 
 Build the packages and install Chromium from the repository root.
