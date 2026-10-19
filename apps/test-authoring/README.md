@@ -8,9 +8,11 @@ The [forty-session pilot](results/pilot-2026-10-17.md) produced no observed dete
 
 The [harder baseline feasibility check](results/feasibility-2026-10-18.md) retained all twelve first attempts. Nine submissions passed the correct app and failed the changed app. Three sessions hit the token cutoff, and no slot produced a qualifying miss. Admission remains `unresolved`; a sixty-run comparison has not started.
 
-The [connected calibration](results/connected-calibration-2026-10-18.md) passed its 144 preparation checks, then retained six author attempts. A journal-reader defect and an incorrect validation invocation blocked calibration. No baseline budget was sealed, and all twelve baseline slots remain unstarted.
+The [connected calibration](results/connected-calibration-2026-10-18.md) passed its 144 preparation checks, then retained six author attempts. A journal-reader defect and an incorrect validation invocation blocked calibration. No baseline budget was sealed, and that bank's twelve baseline slots remain unstarted.
 
-The [fresh connected calibration](results/connected-calibration-2026-10-19.md) repaired those execution problems and passed a new 144-check qualification. Three completed suites passed both correct-app replays. A process-observation failure invalidated the fourth calibration slot and stopped the schedule. The twelve-session baseline remains unstarted, so baseline headroom and any inspection benefit remain unmeasured.
+The [fresh connected calibration](results/connected-calibration-2026-10-19.md) repaired those execution problems and passed a new 144-check qualification. Three completed suites passed both correct-app replays. A process-observation failure invalidated the fourth calibration slot and stopped the schedule. That bank's twelve baseline slots remain unstarted.
+
+The [completed connected baseline](results/connected-baseline-2026-10-19.md) uses a separately declared operator and bank. All six calibration authors passed both correct-app replays, and all twelve baseline authors completed within the sealed budget. All 72 grading cells are retained. Two correct-app repeats are unusable, and twenty member attributions await human judgment. All 48 changed-app repeats failed. Those failures do not establish intended detection or an inspection benefit. The result remains `unresolved-operational-feasibility`, and no sixty-run comparison ran.
 
 ## Prepare the inputs
 
